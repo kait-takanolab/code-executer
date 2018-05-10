@@ -4,9 +4,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/uryoya/code-executer/sandbox"
 )
@@ -20,9 +22,11 @@ type Req struct {
 }
 
 type Rsp struct {
-	Status string `json:"status"`
-	Stdout string `json:"stdout"`
-	Stderr string `json:"stderr"`
+	Status     string        `json:"status"`
+	Stdout     string        `json:"stdout"`
+	Stderr     string        `json:"stderr"`
+	UserTime   time.Duration `json:"user_time"`
+	SystemTime time.Duration `json:"system_time"`
 }
 
 func newServer() (*server, error) {
@@ -54,8 +58,21 @@ func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 		w.Write(rsp)
 		return
 	}
-	stdoutBytes, _ := ioutil.ReadAll(stdout)
-	rsp := Rsp{Status: "ok", Stdout: string(stdoutBytes)}
+	stdoutBytes, _ := ioutil.ReadAll(stdout) // cmd.StdoutPipe() は cmd.Wait() 以前に読み切る必要がある
+	err := cmd.Wait()
+	if err != nil {
+		rsp, _ := json.Marshal(Rsp{Status: "cmd wait failed"})
+		w.Write(rsp)
+		return
+	}
+	rsp := Rsp{
+		Status:     "ok",
+		Stdout:     string(stdoutBytes),
+		Stderr:     "",
+		UserTime:   cmd.ProcessState.UserTime(), // cmd.ProcessState はコマンド実行後に有効になる
+		SystemTime: cmd.ProcessState.SystemTime(),
+	}
+	fmt.Println(rsp)
 	rspJson, _ := json.Marshal(rsp)
 	w.Write(rspJson)
 }
