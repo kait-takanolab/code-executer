@@ -4,7 +4,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -72,7 +71,6 @@ func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 		UserTime:   cmd.ProcessState.UserTime(), // cmd.ProcessState はコマンド実行後に有効になる
 		SystemTime: cmd.ProcessState.SystemTime(),
 	}
-	fmt.Println(rsp)
 	rspJson, _ := json.Marshal(rsp)
 	w.Write(rspJson)
 }
