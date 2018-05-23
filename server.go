@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/uryoya/code-executer/sandbox"
+	"github.com/kait-takanolab/code-executer/sandbox"
 )
 
 type server struct {
