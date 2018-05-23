@@ -35,7 +35,15 @@ func newServer() (*server, error) {
 }
 
 func (s *server) init() {
+	s.mux.HandleFunc("/", s.handleIndex)
 	s.mux.HandleFunc("/compile", s.handleCompile)
+
+	staticHandler := http.StripPrefix("/assets/", http.FileServer(http.Dir("./www/assets/")))
+	s.mux.Handle("/assets/", staticHandler)
+}
+
+func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "./www/index.html")
 }
 
 func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
