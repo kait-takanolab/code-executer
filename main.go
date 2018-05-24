@@ -5,16 +5,6 @@ import (
 	"net/http"
 )
 
-var hello = `
-package main
-
-import "fmt"
-
-func main() {
-	fmt.Println("Hello, World! from Sandbox!")
-}
-`
-
 func main() {
 	s, err := newServer()
 	if err != nil {
