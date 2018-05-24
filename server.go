@@ -60,22 +60,23 @@ func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 	sb.AddData("main.go", []byte(req.Code))
 	cmd := sb.Command("go", "run", "main.go")
 	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
 	if err := cmd.Start(); err != nil {
 		rsp, _ := json.Marshal(Rsp{Status: "pipe stdout failed"})
 		w.Write(rsp)
 		return
 	}
 	stdoutBytes, _ := ioutil.ReadAll(stdout) // cmd.StdoutPipe() は cmd.Wait() 以前に読み切る必要がある
+	stderrBytes, _ := ioutil.ReadAll(stderr)
 	err := cmd.Wait()
+	status := "ok"
 	if err != nil {
-		rsp, _ := json.Marshal(Rsp{Status: "cmd wait failed"})
-		w.Write(rsp)
-		return
+		status = "cmd wait failed"
 	}
 	rsp := Rsp{
-		Status:     "ok",
+		Status:     status,
 		Stdout:     string(stdoutBytes),
-		Stderr:     "",
+		Stderr:     string(stderrBytes),
 		UserTime:   cmd.ProcessState.UserTime(), // cmd.ProcessState はコマンド実行後に有効になる
 		SystemTime: cmd.ProcessState.SystemTime(),
 	}

@@ -18,6 +18,6 @@ function RunCode(e) {
     }).then(function (response) {
         return response.json();
     }).then(function (json) {
-        console.innerText = json.stdout;
+        console.innerText = json.stdout + json.stderr;
     });
 }
