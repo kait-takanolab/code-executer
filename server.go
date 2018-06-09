@@ -155,7 +155,12 @@ func (s *server) handleDockerCompile(w http.ResponseWriter, r *http.Request) {
 		Cmd:  []string{"go", "run", "main.go"},
 		Tty: true,
 	}
-	runRsp, err := s.docker.ContainerCreate(s.dockerCtx, &containerConf, nil, nil, "")
+	runRsp, err := s.docker.ContainerCreate(
+		s.dockerCtx,
+		&containerConf,
+		nil,
+		nil,
+		"")
 	if err != nil {
 		rsp, _ := json.Marshal(RspJson{Status: err.Error()})
 		w.Write(rsp)
