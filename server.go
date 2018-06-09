@@ -8,8 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
-	"os"
-
 	"github.com/kait-takanolab/code-executer/sandbox"
 	"github.com/docker/docker/client"
 	"golang.org/x/net/context"
@@ -74,11 +72,6 @@ func newServer() (*server, error) {
 	if err != nil {
 		return nil, err // write alternative error
 	}
-	reader, err := cli.ImagePull(ctx, "docker.io/library/golang", types.ImagePullOptions{})
-	if err != nil {
-		return nil, err // write alternative error
-	}
-	io.Copy(os.Stdout, reader)
 	s := &server{
 		docker: cli,
 		dockerCtx: ctx,
