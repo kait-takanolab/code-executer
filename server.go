@@ -143,9 +143,9 @@ func (s *server) handleDockerCompile(w http.ResponseWriter, r *http.Request) {
 
 	// compile and run
 	containerConf := container.Config{
-		Image: "docker.io/library/golang",
+		Image: "golang-playground",
 		WorkingDir: "/app",
-		Cmd:  []string{"go", "run", "main.go"},
+		Cmd:  []string{"record", "go", "run", "main.go"},
 		Tty: true,
 	}
 	runRsp, err := s.docker.ContainerCreate(
@@ -160,7 +160,6 @@ func (s *server) handleDockerCompile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// I want to add file to the docker image.
 	srcCode, err := tarMaker([]SourceCodeFile{{"main.go", req.Code}})
 	if err != nil {
 		panicResponse(w, "make tar: " + err.Error())
