@@ -36,6 +36,10 @@ type RspJson struct {
 	SystemTime int64  `json:"system_time"`
 }
 
+type ErrRspJson struct {
+	Status string `json:"status"`
+}
+
 type RusageJson struct {
 	Utime   int64 `json:"utime"`
 	Stime   int64 `json:"stime"`
@@ -57,7 +61,8 @@ type RecordJson struct {
 }
 
 func panicResponse(w http.ResponseWriter, errMsg string) {
-	rsp, _ := json.Marshal(RspJson{Status: errMsg})
+	rsp, _ := json.Marshal(ErrRspJson{Status: errMsg})
+	w.WriteHeader(http.StatusInternalServerError)
 	w.Write(rsp)
 }
 
@@ -137,8 +142,7 @@ func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 		nil,
 		"")
 	if err != nil {
-		rsp, _ := json.Marshal(RspJson{Status: err.Error()})
-		w.Write(rsp)
+		panicResponse(w, "make tar: "+err.Error())
 		return
 	}
 
