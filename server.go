@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
-	"github.com/kait-takanolab/code-executer/sandbox"
 	"github.com/docker/docker/client"
 	"golang.org/x/net/context"
 	"github.com/docker/docker/api/types/container"
@@ -83,7 +82,7 @@ func newServer() (*server, error) {
 
 func (s *server) init() {
 	s.mux.HandleFunc("/", s.handleIndex)
-	s.mux.HandleFunc("/compile", s.handleDockerCompile)
+	s.mux.HandleFunc("/compile", s.handleCompile)
 
 	staticHandler := http.StripPrefix("/assets/", http.FileServer(http.Dir("./www/assets/")))
 	s.mux.Handle("/assets/", staticHandler)
@@ -93,47 +92,8 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "./www/index.html")
 }
 
-// 自作のSandbox環境を使ってコンパイルと実行をする
-func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	// json decode
-	buf := new(bytes.Buffer)
-	io.Copy(buf, r.Body)
-	req := ReqJson{}
-	json.Unmarshal(buf.Bytes(), &req)
-
-	// compile and run
-	sb, _ := sandbox.Init()
-	defer sb.Close()
-	sb.AddData("main.go", []byte(req.Code))
-	cmd := sb.Command("go", "run", "main.go")
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
-	if err := cmd.Start(); err != nil {
-		rsp, _ := json.Marshal(RspJson{Status: "pipe stdout failed"})
-		w.Write(rsp)
-		return
-	}
-	stdoutBytes, _ := ioutil.ReadAll(stdout) // cmd.StdoutPipe() は cmd.Wait() 以前に読み切る必要がある
-	stderrBytes, _ := ioutil.ReadAll(stderr)
-	err := cmd.Wait()
-	status := "ok"
-	if err != nil {
-		status = "cmd wait failed"
-	}
-	rspJson := RspJson{
-		Status:     status,
-		Stdout:     string(stdoutBytes),
-		Stderr:     string(stderrBytes),
-		UserTime:   cmd.ProcessState.UserTime(), // cmd.ProcessState はコマンド実行後に有効になる
-		SystemTime: cmd.ProcessState.SystemTime(),
-	}
-	rsp, _ := json.Marshal(rspJson)
-	w.Write(rsp)
-}
-
 // Dockerを使ったSandbox環境を使ってコンパイルと実行をする
-func (s *server) handleDockerCompile(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	// json decode
 	buf := new(bytes.Buffer)
