@@ -2,24 +2,25 @@
 package main
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"time"
-	"github.com/docker/docker/client"
-	"golang.org/x/net/context"
-	"github.com/docker/docker/api/types/container"
+	"syscall"
+
 	"github.com/docker/docker/api/types"
-	"archive/tar"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 type server struct {
-	docker *client.Client
+	docker    *client.Client
 	dockerCtx context.Context
-	mux *http.ServeMux
+	mux       *http.ServeMux
 }
 
 type ReqJson struct {
@@ -27,11 +28,32 @@ type ReqJson struct {
 }
 
 type RspJson struct {
-	Status     string        `json:"status"`
-	Stdout     string        `json:"stdout"`
-	Stderr     string        `json:"stderr"`
-	UserTime   time.Duration `json:"user_time"`
-	SystemTime time.Duration `json:"system_time"`
+	Status     int    `json:"status"`
+	Stdout     string `json:"stdout"`
+	Stderr     string `json:"stderr"`
+	RealTime   int64  `json:"real_time"`
+	UserTime   int64  `json:"user_time"`
+	SystemTime int64  `json:"system_time"`
+}
+
+type RusageJson struct {
+	Utime   int64 `json:"utime"`
+	Stime   int64 `json:"stime"`
+	Maxrss  int64 `json:"maxrss"`
+	Minflt  int64 `json:"minflt"`
+	Majflt  int64 `json:"majflt"`
+	Inblock int64 `json:"inblock"`
+	Oublock int64 `json:"oublock"`
+	Nvcsw   int64 `json:"nvcsw"`
+	Nivcsw  int64 `json:"nivcsw"`
+}
+
+type RecordJson struct {
+	Stdout string             `json:"stdout"`
+	Stderr string             `json:"stderr"`
+	Status syscall.WaitStatus `json:"status"`
+	Rtime  int64              `json:"rtime"`
+	Rusage RusageJson         `json:"rusage"`
 }
 
 func panicResponse(w http.ResponseWriter, errMsg string) {
@@ -72,9 +94,9 @@ func newServer() (*server, error) {
 		return nil, err // write alternative error
 	}
 	s := &server{
-		docker: cli,
+		docker:    cli,
 		dockerCtx: ctx,
-		mux: http.NewServeMux(),
+		mux:       http.NewServeMux(),
 	}
 	s.init()
 	return s, nil
@@ -103,10 +125,10 @@ func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 
 	// compile and run
 	containerConf := container.Config{
-		Image: "golang-playground",
+		Image:      "golang-playground",
 		WorkingDir: "/app",
-		Cmd:  []string{"record", "go", "run", "main.go"},
-		Tty: true,
+		Cmd:        []string{"record", "go", "run", "main.go"},
+		Tty:        true,
 	}
 	runRsp, err := s.docker.ContainerCreate(
 		s.dockerCtx,
@@ -122,21 +144,20 @@ func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 
 	srcCode, err := tarMaker([]SourceCodeFile{{"main.go", req.Code}})
 	if err != nil {
-		panicResponse(w, "make tar: " + err.Error())
+		panicResponse(w, "make tar: "+err.Error())
 		return
 	}
 	if err := s.docker.CopyToContainer(s.dockerCtx, runRsp.ID, containerConf.WorkingDir, srcCode,
 		types.CopyToContainerOptions{}); err != nil {
 		if err != nil {
-			panicResponse(w, "copy to container: " + err.Error())
+			panicResponse(w, "copy to container: "+err.Error())
 			return
 		}
 	}
 
-
 	if err := s.docker.ContainerStart(s.dockerCtx, runRsp.ID, types.ContainerStartOptions{}); err != nil {
 		if err != nil {
-			panicResponse(w, "container start: " + err.Error())
+			panicResponse(w, "container start: "+err.Error())
 			return
 		}
 	}
@@ -145,20 +166,29 @@ func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 	select {
 	case err := <-errCh:
 		if err != nil {
-			panicResponse(w, "container wait: " + err.Error())
+			panicResponse(w, "container wait: "+err.Error())
 			return
 		}
-		case <-statusCh:
+	case <-statusCh:
 	}
 
 	out, err := s.docker.ContainerLogs(s.dockerCtx, runRsp.ID,
 		types.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
 	if err != nil {
-		panicResponse(w, "container log: " + err.Error())
+		panicResponse(w, "container log: "+err.Error())
 		return
 	}
 	stdoutBytes, _ := ioutil.ReadAll(out)
-	rspJson := RspJson{Status: "ok", Stdout: string(stdoutBytes)}
+	record := RecordJson{}
+	json.Unmarshal(stdoutBytes, &record)
+	rspJson := RspJson{
+		Status:     record.Status.ExitStatus(),
+		Stdout:     record.Stdout,
+		Stderr:     record.Stderr,
+		RealTime:   record.Rtime,
+		UserTime:   record.Rusage.Utime,
+		SystemTime: record.Rusage.Stime,
+	}
 	rsp, _ := json.Marshal(rspJson)
 	w.Write(rsp)
 }
