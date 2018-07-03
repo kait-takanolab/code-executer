@@ -40,6 +40,10 @@ type ErrRspJson struct {
 	Status string `json:"status"`
 }
 
+type TipsJson struct {
+	Message string `json:"message"`
+}
+
 type RusageJson struct {
 	Utime   int64 `json:"utime"`
 	Stime   int64 `json:"stime"`
@@ -110,6 +114,7 @@ func newServer() (*server, error) {
 func (s *server) init() {
 	s.mux.HandleFunc("/", s.handleIndex)
 	s.mux.HandleFunc("/compile", s.handleCompile)
+	s.mux.HandleFunc("/tips", s.HandleTips)
 
 	staticHandler := http.StripPrefix("/assets/", http.FileServer(http.Dir("./www/assets/")))
 	s.mux.Handle("/assets/", staticHandler)
@@ -195,6 +200,12 @@ func (s *server) handleCompile(w http.ResponseWriter, r *http.Request) {
 	}
 	rsp, _ := json.Marshal(rspJson)
 	w.Write(rsp)
+}
+
+func (s *server) HandleTips(w http.ResponseWriter, r *http.Request) {
+	msg := TipsJson{"hello!"}
+	msgJson, _ := json.Marshal(msg)
+	w.Write(msgJson)
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

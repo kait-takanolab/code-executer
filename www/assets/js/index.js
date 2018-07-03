@@ -3,7 +3,7 @@ editor.setKeyboardHandler("ace/keyboard/vim");
 editor.session.setMode("ace/mode/golang");
 
 const runButton = document.getElementById("run");
-const console = document.getElementById("console");
+const terminal = document.getElementById("terminal");
 
 runButton.addEventListener("click", RunCode, true);
 
@@ -18,6 +18,26 @@ function RunCode(e) {
     }).then(function (response) {
         return response.json();
     }).then(function (json) {
-        console.innerText = json.stdout + json.stderr;
+        terminal.innerText = json.stdout + json.stderr;
     });
 }
+
+setInterval(function() {
+    // fetch("/tips", {
+    //     method: "GET"
+    // }).then(function (response) {
+    //     return response.json();
+    // }).then(function (json) {
+    //     let tipsWindow = document.getElementById("tipsWindow")
+    //     tipsWindow.innerText = json.message
+    // })
+    let tipsWindow = document.getElementById("tipsWindow")
+    let rowContent = editor.session.getLine(editor.selection.getCursor().row);
+    if (rowContent.includes("if")) {
+        tipsWindow.innerText = "ifの使い方";
+    } else if (rowContent.includes("switch")) {
+        tipsWindow.innerText = "switchの使い方";
+    } else {
+        tipsWindow.innerText = "";
+    }
+}, 1000);
